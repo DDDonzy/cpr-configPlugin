@@ -1,0 +1,15 @@
+**/target/
+**/node_modules/
+**/dist/
+/dist/
+/codex-setup/dist/
+/codex-setup/server/assets/codex-setup.bat
+/vendor/gateway-plugin-sdk/target/
+Scripts/results/
+*.log
+*.wsb
+.env
+.env.*
+*_AUTH.md
+*_VPS.md
+**/private-*

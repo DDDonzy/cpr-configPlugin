@@ -1,0 +1,10 @@
+{
+  "default_model": "gpt-6.1-sol",
+  "default_reasoning_effort": "",
+  "supports_websockets": true,
+  "remote_compaction": "v2",
+  "managed_actor_header": true,
+  "image_generation": true,
+  "goals": true,
+  "stream_idle_timeout_ms": 900000
+}

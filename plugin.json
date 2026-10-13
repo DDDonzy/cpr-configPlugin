@@ -1,0 +1,59 @@
+{
+  "manifestVersion": 2,
+  "name": "model-routing-groups",
+  "displayName": "模型配置管理",
+  "publisher": "donzy",
+  "version": "1.0.0",
+  "description": "账号模型规则、可复用模型分组、模型基础配置与Codex配置工具",
+  "license": "Apache-2.0",
+  "author": "Donzy",
+  "engines": {
+    "codex-proxy-rs": ">=3.25.0, <4.0.0"
+  },
+  "main": "bin/plugin",
+  "runtime": "trustedProcess",
+  "contributes": {
+    "management": {}
+  },
+  "configurationSchema": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false
+  },
+  "resources": {
+    "web/routing/index.html": "text/html",
+    "web/routing/app.js": "text/javascript",
+    "web/routing/app.css": "text/css",
+    "web/models/index.html": "text/html",
+    "web/models/app.js": "text/javascript",
+    "web/models/app.css": "text/css",
+    "downloads/codex-setup.bat": "application/octet-stream"
+  },
+  "state": [
+    {
+      "namespace": "routing-groups",
+      "schemaVersion": 1,
+      "schema": {
+        "type": "object",
+        "required": [
+          "encoding",
+          "data"
+        ],
+        "properties": {
+          "encoding": {
+            "const": "zlib-base64"
+          },
+          "data": {
+            "type": "string",
+            "maxLength": 49152
+          }
+        },
+        "additionalProperties": false
+      },
+      "maximumRecords": 1,
+      "maximumBytes": 65536,
+      "maximumValueBytes": 65536,
+      "migratesFrom": []
+    }
+  ]
+}

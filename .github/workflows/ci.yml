@@ -1,0 +1,33 @@
+name: Test
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: codex-setup/server/go.mod
+      - run: python Scripts/build-bat.py
+      - run: npm --prefix frontend ci --ignore-scripts
+      - run: npm --prefix frontend run build
+      - run: cargo test --manifest-path backend/Cargo.toml --locked
+      - run: cargo build --manifest-path backend/Cargo.toml --locked
+      - run: python Scripts/ipc-routing.py
+      - run: python Scripts/ipc-capabilities.py
+      - run: node --experimental-strip-types --test Scripts/export.test.mts
+      - run: go test -race ./...
+        working-directory: codex-setup/server
+      - run: python Scripts/scan-source.py

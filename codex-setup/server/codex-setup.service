@@ -1,0 +1,29 @@
+[Unit]
+Description=CPR Codex setup read-only configuration endpoint
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=codex-setup-reader
+Group=codex-setup-reader
+ExecStart=/opt/codex-setup/codex-setup-server
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadOnlyPaths=/opt/codex-setup /opt/codex-proxy-rs/.runtime/data/model-capabilities
+UMask=0077
+MemoryMax=128M
+TasksMax=32
+LimitNOFILE=128
+
+[Install]
+WantedBy=multi-user.target
