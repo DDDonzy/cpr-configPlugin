@@ -1,7 +1,8 @@
 from pathlib import Path
 import hashlib,json,tarfile
 R=Path(__file__).resolve().parent.parent
-files=list((R/'dist').glob('*.tar.gz'))+[R/'dist/codex-setup.bat',R/'dist/codex-setup-server-linux-arm64']
+version=json.loads((R/'plugin.json').read_text(encoding='utf-8'))['version']
+files=list((R/'dist').glob(f'donzy.*-{version}-*.tar.gz'))+[R/'dist/codex-setup.bat',R/'dist/codex-setup-server-linux-arm64']
 assert len(files)==3
 with tarfile.open(files[0],'r:gz') as t:
  bat=t.extractfile('downloads/codex-setup.bat').read()

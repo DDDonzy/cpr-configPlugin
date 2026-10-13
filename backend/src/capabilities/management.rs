@@ -43,6 +43,7 @@ pub fn registration() -> ManagementRegistration {
         routes: [
             ("GET", "api/snapshot"),
             ("POST", "api/preview"),
+            ("POST", "api/initialize"),
             ("POST", "api/save"),
         ]
         .into_iter()
@@ -105,6 +106,20 @@ impl App {
                 let snapshot = self.store.snapshot()?;
                 Ok(json!(snapshot))
             }
+            ("POST", "api/initialize") => {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Initialize {
+                    confirm: bool,
+                }
+                let request: Initialize = serde_json::from_slice(&call.payload)
+                    .map_err(|_| StoreError::invalid("初始化确认参数无效"))?;
+                if !request.confirm {
+                    return Err(StoreError::invalid("需要明确确认首次初始化"));
+                }
+                let _guard = self.writes.lock().await;
+                Ok(json!(self.store.initialize()?))
+            }
             ("POST", path @ ("api/preview" | "api/save")) => {
                 let update: Update = serde_json::from_slice(&call.payload)
                     .map_err(|e| StoreError::invalid(format!("请求 JSON 或字段无效：{e}")))?;
@@ -143,7 +158,7 @@ mod tests {
     #[test]
     fn registration_is_management_only() {
         let m = super::registration();
-        assert_eq!(m.routes.len(), 3);
+        assert_eq!(m.routes.len(), 4);
         assert!(m.routes.iter().all(|r| r.path.starts_with("api/")));
         let manifest = crate::manifest().unwrap();
         assert_eq!(manifest.contributes.len(), 1);

@@ -128,7 +128,7 @@ class Tests(unittest.TestCase):
 
  def test_registration_and_snapshot_redaction(self):
   with Harness() as h:
-   reg,p=h.call('management.register',{},b'','registration');data=json.loads(p);self.assertEqual(len(data['pages']),2);self.assertEqual(len(data['routes']),11)
+   reg,p=h.call('management.register',{},b'','registration');data=json.loads(p);self.assertEqual(len(data['pages']),2);self.assertEqual(len(data['routes']),12)
    status,s=h.management('api/snapshot');self.assertEqual(status,200);self.assertNotIn('DO_NOT_EXPOSE_SENTINEL',json.dumps(s));self.assertEqual(s['accounts'][0]['modelAccess'],POLICY);self.assertEqual(h.writes,[])
  def test_large_groups_return_binary_snapshot_below_metadata_limit(self):
   groups=[{'id':f'g{i}','name':f'group{i}','models':[f'vendor-model-family-long-prefix-{i}-{j}' for j in range(256)]} for i in range(16)]

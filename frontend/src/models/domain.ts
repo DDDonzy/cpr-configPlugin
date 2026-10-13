@@ -12,6 +12,7 @@ export interface Snapshot {
   modelOrder: string[]
   filePath: string
   pluginVersion: string
+  initialized?: boolean
 }
 export interface Diff {
   added: string[]

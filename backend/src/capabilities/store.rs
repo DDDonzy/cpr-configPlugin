@@ -21,12 +21,14 @@ impl StoreError {
             message: message.into(),
         }
     }
-    fn io(_: std::io::Error) -> Self {
+    fn io(error: std::io::Error) -> Self {
         Self {
             status: 503,
-            message:
-                "配置文件操作未完成，请重新加载检查。若文件已损坏，请从备份恢复，不会自动覆盖。"
-                    .into(),
+            message: match error.kind() {
+                std::io::ErrorKind::NotFound => "基础配置文件缺失。若曾保存过，请检查路径或恢复备份；不会覆盖或自动重建历史文件。",
+                std::io::ErrorKind::PermissionDenied => "无权读取或写入基础配置文件，请检查插件运行用户及目录/文件权限；不会覆盖现有文件。",
+                _ => "配置文件操作未完成，请重新加载检查；不会自动覆盖现有文件。",
+            }.into(),
         }
     }
     fn conflict() -> Self {
@@ -48,6 +50,7 @@ pub struct Snapshot {
     pub model_order: Vec<String>,
     pub file_path: String,
     pub plugin_version: &'static str,
+    pub initialized: bool,
 }
 pub fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
@@ -104,7 +107,75 @@ impl Store {
         }
         Ok(bytes)
     }
+    fn fresh_location(&self) -> Result<bool, StoreError> {
+        Self::reject_symlink(&self.root)?;
+        Self::reject_symlink(&self.file())?;
+        if self.file().try_exists().map_err(StoreError::io)? {
+            return Ok(false);
+        }
+        if !self.root.try_exists().map_err(StoreError::io)? {
+            return Ok(true);
+        }
+        // Any prior lock, backup, marker or unknown data makes this a recovery case.
+        Ok(fs::read_dir(&self.root)
+            .map_err(StoreError::io)?
+            .next()
+            .is_none())
+    }
+    pub fn initialize(&self) -> Result<Snapshot, StoreError> {
+        for path in self.root.ancestors() {
+            Self::reject_symlink(path)?;
+        }
+        if !self.fresh_location()? {
+            return Err(StoreError {
+                status: 409,
+                message: "已有配置或历史记录，拒绝首次初始化；请重新加载或恢复备份。".into(),
+            });
+        }
+        let mut dir = fs::DirBuilder::new();
+        dir.recursive(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            dir.mode(0o700);
+        }
+        dir.create(&self.root).map_err(StoreError::io)?;
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| StoreError::invalid("系统时间无效"))?
+            .as_nanos();
+        let temp = self
+            .root
+            .join(format!(".initialize-{}-{stamp}.tmp", std::process::id()));
+        let result = (|| {
+            let mut file = private_file(&temp)?;
+            file.write_all(b"{}\n").map_err(StoreError::io)?;
+            file.sync_all().map_err(StoreError::io)?;
+            // Atomic no-overwrite publication. Concurrent initialization can never replace a file.
+            fs::hard_link(&temp, self.file()).map_err(|e| {
+                if e.kind() == std::io::ErrorKind::AlreadyExists {
+                    StoreError::conflict()
+                } else {
+                    StoreError::io(e)
+                }
+            })?;
+            Ok(())
+        })();
+        let _ = fs::remove_file(&temp);
+        result?;
+        self.snapshot()
+    }
     pub fn snapshot(&self) -> Result<Snapshot, StoreError> {
+        if self.fresh_location()? {
+            return Ok(Snapshot {
+                version: "0".repeat(64),
+                models: Catalog::default(),
+                model_order: vec![],
+                file_path: self.file().display().to_string(),
+                plugin_version: env!("CARGO_PKG_VERSION"),
+                initialized: false,
+            });
+        }
         let bytes = self.raw()?;
         let models = Catalog::parse(&bytes).map_err(StoreError::invalid)?;
         Ok(Snapshot {
@@ -113,6 +184,7 @@ impl Store {
             models,
             file_path: self.file().display().to_string(),
             plugin_version: env!("CARGO_PKG_VERSION"),
+            initialized: true,
         })
     }
     pub fn preview(
@@ -206,6 +278,76 @@ mod tests {
         fs::write(d.path().join("models.common.json"), c.render().unwrap()).unwrap();
         let s = Store::new(d.path().to_owned());
         (d, s, c)
+    }
+    #[test]
+    fn first_install_read_is_virtual_and_never_writes() {
+        let parent = tempfile::tempdir().unwrap();
+        let root = parent.path().join("new");
+        let store = Store::new(root.clone());
+        let snap = store.snapshot().unwrap();
+        assert!(!snap.initialized);
+        assert!(snap.models.0.is_empty());
+        assert_eq!(snap.version, "0".repeat(64));
+        assert!(!root.exists());
+    }
+    #[test]
+    fn explicit_initialization_creates_empty_once() {
+        let parent = tempfile::tempdir().unwrap();
+        let root = parent.path().join("new");
+        let store = Store::new(root.clone());
+        let snap = store.initialize().unwrap();
+        assert!(snap.initialized);
+        assert!(snap.models.0.is_empty());
+        assert_eq!(fs::read(store.file()).unwrap(), b"{}\n");
+        assert_eq!(store.initialize().unwrap_err().status, 409);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(&root).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+            assert_eq!(
+                fs::metadata(store.file()).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
+    }
+    #[test]
+    fn history_without_source_is_not_first_install() {
+        let (dir, store, mut catalog) = setup();
+        let snap = store.snapshot().unwrap();
+        catalog.0.get_mut("a").unwrap().display_name = "Saved".into();
+        store.save(&snap.version, &catalog).unwrap();
+        fs::remove_file(store.file()).unwrap();
+        assert_eq!(store.snapshot().unwrap_err().status, 503);
+        assert_eq!(store.initialize().unwrap_err().status, 409);
+        assert!(dir.path().join("backups").exists());
+        assert!(!store.file().exists());
+    }
+    #[test]
+    fn initialization_never_overwrites_valid_or_corrupt_data() {
+        let (_dir, store, _) = setup();
+        let old = fs::read(store.file()).unwrap();
+        assert_eq!(store.initialize().unwrap_err().status, 409);
+        assert_eq!(fs::read(store.file()).unwrap(), old);
+        fs::write(store.file(), b"bad JSON").unwrap();
+        assert_eq!(store.initialize().unwrap_err().status, 409);
+        assert_eq!(fs::read(store.file()).unwrap(), b"bad JSON");
+    }
+    #[test]
+    fn concurrent_first_initializations_never_replace_data() {
+        let parent = tempfile::tempdir().unwrap();
+        let root = parent.path().join("new");
+        let a = Store::new(root.clone());
+        let b = Store::new(root);
+        a.initialize().unwrap();
+        let snap = a.snapshot().unwrap();
+        let catalog=Catalog::parse(br#"{"a":{"display_name":"A","reasoning_levels":["high"],"context_window":1000,"input_modalities":["text"]}}"#).unwrap();
+        a.save(&snap.version, &catalog).unwrap();
+        let old = fs::read(a.file()).unwrap();
+        assert_eq!(b.initialize().unwrap_err().status, 409);
+        assert_eq!(fs::read(a.file()).unwrap(), old);
     }
     #[test]
     fn save_and_backup() {

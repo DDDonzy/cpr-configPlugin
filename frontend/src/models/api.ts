@@ -24,6 +24,7 @@ export async function request<T>(path: string, data?: unknown): Promise<T> {
   return value as T
 }
 export const api = {
+  initialize: () => request<Snapshot>('api/initialize', { confirm: true }),
   snapshot: () => request<Snapshot>('api/snapshot'),
   preview: (expectedVersion: string, models: Catalog, modelOrder: string[]) =>
     request<{ diff: Diff; version: string }>('api/preview', {

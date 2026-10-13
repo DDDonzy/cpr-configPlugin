@@ -123,6 +123,19 @@ async function load() {
     busy.value = false
   }
 }
+async function initializeFile() {
+  if (busy.value) return
+  busy.value = true
+  error.value = ''
+  try {
+    const value = await api.initialize()
+    snapshot.value = value
+    draft.value = clone(value.models)
+    modelOrder.value = [...value.modelOrder]
+    success.value = '空配置已初始化。请导入基础 JSON 或新增模型，然后保存。'
+  } catch (e) {error.value = (e as Error).message}
+  finally {busy.value = false}
+}
 function reload() {
   if (dirty.value) discardOpen.value = true
   else void load()
@@ -432,17 +445,21 @@ onMounted(load)
           text="只维护独立的模型基础 JSON。不会修改账号白名单、路由、CPA 或本地 Codex 设置。这里的能力值是人工声明，不代表上游已验证支持。"
         /><ZButton :disabled="locked" :loading="busy" @click="reload"
           ><RefreshCw :size="15" />重新加载</ZButton
-        ><ZButton :disabled="!snapshot || locked" @click="openImport"
+        ><ZButton :disabled="!snapshot || snapshot.initialized === false || locked" @click="openImport"
           ><Upload :size="15" />导入 JSON</ZButton
-        ><ZButton :disabled="!snapshot || locked" @click="showJson()"
+        ><ZButton :disabled="!snapshot || snapshot.initialized === false || locked" @click="showJson()"
           ><Download :size="15" />导出 JSON</ZButton
         ><ZButton
           type="primary"
-          :disabled="!snapshot || locked"
+          :disabled="!snapshot || snapshot.initialized === false || locked"
           @click="startEdit(null)"
           ><Plus :size="15" />新增模型</ZButton
         >
       </div>
+    </div>
+    <div v-if="snapshot?.initialized === false" class="notice warning" role="status">
+      <p>首次安装：基础模型文件尚未创建。初始化只创建空配置，不从其他节点复制模型，不覆盖已有文件或历史记录。</p>
+      <ZButton :disabled="busy" :loading="busy" @click="initializeFile">初始化空配置</ZButton>
     </div>
     <div v-if="error && !previewOpen" class="notice error" role="alert">
       {{ error }}
@@ -587,7 +604,7 @@ onMounted(load)
     <div class="save-bar" v-if="snapshot">
       <div class="file-status">
         <FileJson :size="17" /><span>{{
-          dirty ? '有未保存的修改' : '与文件一致'
+          snapshot?.initialized === false ? '尚未初始化' : dirty ? '有未保存的修改' : '与文件一致'
         }}</span
         ><HelpTip
           label="保存文件"

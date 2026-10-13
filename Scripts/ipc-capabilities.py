@@ -100,7 +100,7 @@ class Tests(unittest.TestCase):
   status,s=h.management('models/api/snapshot');self.assertEqual(status,200);return {'expectedVersion':s['version'],'models':copy.deepcopy(DATA if models is None else models),'modelOrder':list(DATA if models is None else models)}
  def test_registration_snapshot_no_host_access(self):
   with Harness(self.root) as h:
-   status,s=h.management('models/api/snapshot');self.assertEqual(status,200);self.assertEqual(s['models'],DATA);self.assertEqual(h.callbacks,[]);self.assertEqual(len(s['version']),64);self.assertEqual(s['pluginVersion'],'1.0.0');self.assertEqual(set(MANIFEST['contributes']),{'management'});self.assertEqual(MANIFEST['state'][0]['namespace'],'routing-groups')
+   status,s=h.management('models/api/snapshot');self.assertEqual(status,200);self.assertEqual(s['models'],DATA);self.assertEqual(h.callbacks,[]);self.assertEqual(len(s['version']),64);self.assertEqual(s['pluginVersion'],'1.0.1');self.assertEqual(set(MANIFEST['contributes']),{'management'});self.assertEqual(MANIFEST['state'][0]['namespace'],'routing-groups')
  def test_preview_does_not_write(self):
   before=self.file.read_bytes()
   with Harness(self.root) as h:
@@ -132,7 +132,7 @@ class Tests(unittest.TestCase):
    r=self.req(h,{});self.assertEqual(h.management('models/api/preview',r)[0],200);self.assertNotEqual(json.loads(self.file.read_text()),{});self.assertEqual(h.management('models/api/save',r)[0],200);self.assertEqual(self.file.read_text(),'{}\n')
  def test_corruption_and_missing_file_not_initialized(self):
   with Harness(self.root) as h:
-   r=self.req(h);self.file.write_text('broken');self.assertEqual(h.management('models/api/save',r)[0],400);self.assertEqual(self.file.read_text(),'broken');self.file.unlink();self.assertEqual(h.management('models/api/snapshot')[0],503);self.assertFalse(self.file.exists())
+   r=self.req(h);self.file.write_text('broken');self.assertEqual(h.management('models/api/save',r)[0],400);self.assertEqual(self.file.read_text(),'broken');(self.root/'backups').mkdir();self.file.unlink();self.assertEqual(h.management('models/api/snapshot')[0],503);self.assertFalse(self.file.exists())
  def test_unknown_route_and_unknown_request_fields(self):
   with Harness(self.root) as h:
    r=self.req(h);r['path']='/etc/passwd';self.assertEqual(h.management('models/api/save',r)[0],400);self.assertEqual(h.management('models/api/unknown')[0],404);self.assertEqual(h.callbacks,[])
@@ -165,6 +165,17 @@ class CombinedTests(unittest.TestCase):
  setUp=Tests.setUp
  tearDown=Tests.tearDown
  req=Tests.req
+ def test_first_install_requires_explicit_confirm(self):
+  fresh=self.root/'fresh';fresh.mkdir()
+  with Harness(fresh) as h:
+   status,s=h.management('models/api/snapshot');self.assertEqual(status,200);self.assertFalse(s['initialized']);self.assertEqual(list(fresh.iterdir()),[])
+   status,_=h.management('models/api/initialize',{'confirm':False});self.assertEqual(status,400);self.assertEqual(list(fresh.iterdir()),[])
+   status,s=h.management('models/api/initialize',{'confirm':True});self.assertEqual(status,200);self.assertTrue(s['initialized']);self.assertEqual((fresh/'models.common.json').read_bytes(),b'{}\n');self.assertEqual(h.callbacks,[])
+   status,_=h.management('models/api/initialize',{'confirm':True});self.assertEqual(status,409)
+ def test_history_is_not_silently_reinitialized(self):
+  with Harness(self.root) as h:
+   r=self.req(h);r['models'][ID]['display_name']='Saved';self.assertEqual(h.management('models/api/save',r)[0],200);self.file.unlink()
+   self.assertEqual(h.management('models/api/snapshot')[0],503);self.assertEqual(h.management('models/api/initialize',{'confirm':True})[0],409);self.assertFalse(self.file.exists())
  def test_download_payload_matches_packaged_resource(self):
   with Harness(self.root) as h:
    result,body=h.call('management.handle',{'method':'GET','path':'api/setup-download','query':'','content_type':None,'headers':[]})
