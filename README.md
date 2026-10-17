@@ -2,6 +2,8 @@
 
 将「模型路由分组」和「模型基础配置」合并的 CPR 管理插件，并包含通用 Windows Codex 配置 BAT。**不修改 CPR 本体、前端、iframe 权限或 Caddy 配置。**
 
+当前插件版本 **1.0.2**，面向 CPR **3.29.1** 构建并验证；使用插件协议 v4、management 合同 v2。声明范围 `>=3.29.1, <4.0.0`，后续宿主仍需核对协议兼容性。
+
 ## 功能
 
 - 两个保留原布局的管理页面：账号原生白/黑名单及可复用分组；基础模型 JSON 与 Base/Codex 导出。
@@ -12,7 +14,7 @@
 
 ## 下载 BAT：遵守原生隔离
 
-CPR 3.25 的插件 iframe 禁止直接下载。导出JSON选择Codex后，「选中全部」被替换为「下载 BAT」；点击会打开说明窗口，提供 **Release 下载链接及复制按钮**。请在浏览器地址栏打开链接下载。
+CPR 的插件 iframe 禁止直接下载。导出JSON选择Codex后，「选中全部」被替换为「下载 BAT」；点击会打开说明窗口，提供 **Release 下载链接及复制按钮**。请在浏览器地址栏打开链接下载。
 
 不会伪装成一键下载，不使用弹窗逃逸，不添加 allow-downloads。浏览器不允许剪贴板时会选中链接，按Ctrl+C即可。未保存草稿不会进入通用BAT。
 
@@ -47,7 +49,7 @@ rustup target add aarch64-unknown-linux-musl
 python Scripts/build.py
 ```
 
-产物在dist：受管插件tar.gz、通用BAT、独立服务LinuxARM64二进制。打包脚本生成标准protocol2清单和每个文件的SHA256，不包含任何配置数据、凭据或部署日志。Windows构建需Go可执行文件，或者先单独交叉构建服务，再用 `--skip-go`。
+产物在dist：受管插件tar.gz、通用BAT、独立服务LinuxARM64二进制。打包脚本生成标准protocol4清单和每个文件的SHA256，不包含任何配置数据、凭据或部署日志。Windows构建需Go可执行文件，或者先单独交叉构建服务，再用 `--skip-go`。
 
 ## 测试
 
@@ -67,4 +69,4 @@ IPC测试启动真实插件子进程，但宿主账号/状态均为虚构测试�
 
 ## 许可
 
-Apache-2.0。第三方说明见NOTICE；Nett 0.15.0 MIT许可单独保留。gateway-plugin-sdk来源于官方CPR3.25合同，未修改其源码。
+Apache-2.0。第三方说明见NOTICE；Nett 0.15.0 MIT许可单独保留。gateway-plugin-sdk 固定取自官方 CPR v3.29.1；保留源码及许可，仅将 Cargo workspace 元数据展开以支持独立构建。
