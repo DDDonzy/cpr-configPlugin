@@ -10,7 +10,7 @@ for page in ('routing','models'):
 files['downloads/codex-setup.bat']=R/'dist/codex-setup.bat'
 assert set(manifest['resources'])==set(files)-{'bin/plugin'}
 assert files['downloads/codex-setup.bat'].read_bytes()==(R/'codex-setup/dist/codex-setup.bat').read_bytes()
-manifest['package']={'protocolVersion':4,'target':{'os':'linux','architecture':'aarch64'},'files':{n:hashlib.sha256(f.read_bytes()).hexdigest() for n,f in sorted(files.items())}}
+manifest['package']={'protocolVersion':5,'target':{'os':'linux','architecture':'aarch64'},'files':{n:hashlib.sha256(f.read_bytes()).hexdigest() for n,f in sorted(files.items())}}
 name=f"{manifest['publisher']}.{manifest['name']}-{manifest['version']}-aarch64-unknown-linux-gnu.tar.gz"
 out=R/'dist'/name;contents={'plugin.json':(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n').encode(),**{n:f.read_bytes() for n,f in files.items()}}
 with out.open('wb') as dst:

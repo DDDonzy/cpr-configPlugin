@@ -10,8 +10,8 @@ class Harness:
   self.proc=subprocess.Popen([str(BIN)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=env)
   self.frames=queue.Queue();self.read_error=None;self.seq=99;self.accounts=[copy.deepcopy(ACCOUNT)];self.doc=None;self.version=None;self.fail_put=False;self.fail_native=False;self.callbacks=[];self.http_requests=[];self.writes=[];self.bodies={};self.body_seq=0
   threading.Thread(target=self.reader,daemon=True).start()
-  self.send({'type':'hello','handshake':{'protocol_version':4,'artifact_sha256':'a'*64,'plugin_id':'donzy.model-routing-groups','instance_id':'test-instance','generation':1,'incarnation':'test-incarnation','configuration':{},'contributes':MANIFEST['contributes']}})
-  ready,payload=self.read();assert ready['type']=='ready' and ready['protocol_version']==4 and not payload
+  self.send({'type':'hello','handshake':{'protocol_version':5,'artifact_sha256':'a'*64,'plugin_id':'donzy.model-routing-groups','instance_id':'test-instance','generation':1,'incarnation':'test-incarnation','configuration':{},'contributes':MANIFEST['contributes']}})
+  ready,payload=self.read();assert ready['type']=='ready' and ready['protocol_version']==5 and not payload
   self.call('plugin.register',{},b'','registration')
  def reader(self):
   try:
