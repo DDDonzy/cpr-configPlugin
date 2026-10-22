@@ -21,6 +21,23 @@ export interface GroupState {
   version: number | null
   value: GroupDocument
 }
+export interface AccountGroupRef {
+  id: string
+  name: string
+  color?: string
+  enabled: boolean
+}
+/** 插件后端按允许清单投影的账号身份，不含令牌或密钥 */
+export interface AccountIdentity {
+  email?: string
+  label?: string
+  notes?: string
+  authenticationKind?: string
+  planType?: string
+  planTypeDisplay?: string
+  groups?: AccountGroupRef[]
+  lastUsedAt?: string
+}
 export interface Account {
   id: string
   name: string
@@ -28,6 +45,22 @@ export interface Account {
   enabled: boolean
   status: string
   modelAccess: ModelAccess
+  identity?: AccountIdentity
+}
+export interface UpstreamAddress {
+  url: string
+  host: string
+  loopback: boolean
+}
+export interface AccountUpstream {
+  kind: 'oauth' | 'api_key' | 'unknown'
+  status: 'ok' | 'unavailable' | 'timeout'
+  address?: UpstreamAddress
+  transport?: 'http' | 'prefer_websocket' | null
+}
+export interface UpstreamsResponse {
+  upstreams: Record<string, AccountUpstream>
+  warnings: string[]
 }
 export interface Snapshot {
   accounts: Account[]

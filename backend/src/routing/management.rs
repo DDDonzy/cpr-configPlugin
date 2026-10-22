@@ -2,7 +2,7 @@
 
 use crate::routing::{
     domain::{self, Account, Binding, GroupState, ModelGroup, PolicyRequest},
-    host,
+    host, identity,
 };
 use gateway_plugin_sdk::{
     ErrorCode, PluginFault,
@@ -105,6 +105,7 @@ struct CatalogAll {
 pub fn registration() -> ManagementRegistration {
     let routes = [
         ("GET", "api/snapshot"),
+        ("GET", "api/upstreams"),
         ("GET", "api/catalog-all"),
         ("POST", "api/catalog-all"),
         ("POST", "api/catalog"),
@@ -168,6 +169,13 @@ impl App {
                     &json!({"accounts":accounts,"state":state,"limits":{"modelsPerAccount":256,"groups":32},"pluginVersion":env!("CARGO_PKG_VERSION")}),
                 )
             }
+            ("GET", "api/upstreams") => {
+                if !call.payload.is_empty() {
+                    return Err(ApiError::invalid("GET 请求不能携带正文"));
+                }
+                let accounts = host::accounts(&call.host).await?;
+                reply(&upstreams(&call, &accounts).await)
+            }
             (method @ ("GET" | "POST"), "api/catalog-all") => {
                 let refresh = if method == "POST" {
                     decode::<CatalogAll>(&call.payload)?.refresh
@@ -220,13 +228,13 @@ impl App {
                             } else {
                                 warnings.push(format!(
                                     "账号 {} 的目录格式不兼容，当前结果不完整",
-                                    account.name
+                                    account.display_label()
                                 ));
                             }
                         }
                         _ => warnings.push(format!(
                             "账号 {} 的目录暂不可读，当前结果不完整",
-                            account.name
+                            account.display_label()
                         )),
                     }
                     if ids.len() > 10000 {
@@ -364,6 +372,76 @@ impl App {
             }),
         }
     }
+}
+/// 只为 API Key 账号读取原生详情中的非敏感连接配置；单个账号失败不影响其余结果，也不写任何状态
+async fn upstreams(call: &TypedCall<ManagementRequest>, accounts: &[Account]) -> Value {
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(12);
+    let mut result = serde_json::Map::new();
+    let (mut failed, mut pending) = (0usize, 0usize);
+    for account in accounts {
+        let value = match account.identity.authentication_kind.as_deref() {
+            Some("api_key") if domain::valid_account_id(&account.id) => {
+                if tokio::time::Instant::now() >= deadline {
+                    pending += 1;
+                    json!({"kind":"api_key","status":"timeout"})
+                } else {
+                    match tokio::time::timeout_at(
+                        deadline,
+                        host::native(
+                            &call.host,
+                            "GET",
+                            format!("/api/admin/accounts/detail?accountId={}", account.id),
+                            None,
+                        ),
+                    )
+                    .await
+                    {
+                        Ok(Ok(data)) => {
+                            let config = data.get("credentialConfiguration");
+                            let address = config
+                                .and_then(|c| c.get("base_url"))
+                                .and_then(Value::as_str)
+                                .and_then(identity::sanitize_base_url);
+                            let transport = config
+                                .and_then(|c| c.get("transport"))
+                                .and_then(Value::as_str)
+                                .filter(|t| matches!(*t, "http" | "prefer_websocket"));
+                            match address {
+                                Some(address) => {
+                                    json!({"kind":"api_key","status":"ok","address":address,"transport":transport})
+                                }
+                                None => {
+                                    failed += 1;
+                                    json!({"kind":"api_key","status":"unavailable"})
+                                }
+                            }
+                        }
+                        Ok(Err(_)) => {
+                            failed += 1;
+                            json!({"kind":"api_key","status":"unavailable"})
+                        }
+                        Err(_) => {
+                            pending += 1;
+                            json!({"kind":"api_key","status":"timeout"})
+                        }
+                    }
+                }
+            }
+            Some("oauth") => json!({"kind":"oauth","status":"ok"}),
+            _ => json!({"kind":"unknown","status":"ok"}),
+        };
+        result.insert(account.id.clone(), value);
+    }
+    let mut warnings = Vec::new();
+    if failed > 0 {
+        warnings.push(format!("{failed} 个 API Key 账号的上游地址暂不可读"));
+    }
+    if pending > 0 {
+        warnings.push(format!(
+            "读取超时，尚有 {pending} 个 API Key 账号未显示上游地址，请重新加载"
+        ));
+    }
+    json!({"upstreams":result,"warnings":warnings})
 }
 async fn prepare(
     call: &TypedCall<ManagementRequest>,

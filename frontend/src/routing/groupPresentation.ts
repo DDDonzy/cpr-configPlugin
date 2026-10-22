@@ -17,6 +17,7 @@ export function groupAssociations(
   groupId: string,
   bindings: Record<string, Binding>,
   accounts: readonly Account[],
+  labels?: ReadonlyMap<string, string>,
 ): GroupAssociation[] {
   const accountsById = new Map(accounts.map((account) => [account.id, account]))
   return Object.entries(bindings)
@@ -25,7 +26,9 @@ export function groupAssociations(
       const account = accountsById.get(accountId)
       return {
         accountId,
-        name: account?.name ?? '已移除的账号',
+        name: account
+          ? (labels?.get(accountId) ?? account.name)
+          : '已移除的账号',
         missing: !account,
         savedMode: binding.appliedPolicy.mode,
       }

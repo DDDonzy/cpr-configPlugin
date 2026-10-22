@@ -18,6 +18,7 @@ import {
 const props = defineProps<{
   group: ModelGroup
   accounts: readonly Account[]
+  labels?: ReadonlyMap<string, string>
   bindings: Record<string, Binding>
 }>()
 const emit = defineEmits<{
@@ -29,7 +30,12 @@ const expanded = ref(false),
   moreOpen = ref(false)
 const detailsId = `group-details-${useId()}`
 const associations = computed(() =>
-  groupAssociations(props.group.id, props.bindings, props.accounts),
+  groupAssociations(
+    props.group.id,
+    props.bindings,
+    props.accounts,
+    props.labels,
+  ),
 )
 function toggle() {
   expanded.value = !expanded.value

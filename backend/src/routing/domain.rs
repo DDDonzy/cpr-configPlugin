@@ -1,5 +1,6 @@
 //! 校验精确模型权限与可复用分组，保留原生模型匹配和数量边界
 
+use crate::routing::identity::AccountIdentity;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -112,6 +113,15 @@ pub struct Account {
     pub enabled: bool,
     pub status: String,
     pub model_access: ModelAccess,
+    /// 由 host::accounts 按允许清单显式填充，不从原生 JSON 直接反序列化
+    #[serde(default, skip_deserializing)]
+    pub identity: AccountIdentity,
+}
+impl Account {
+    /// 同名账号以邮箱区分；API Key 账号保持原生名称
+    pub fn display_label(&self) -> String {
+        crate::routing::identity::display_label(&self.name, &self.identity)
+    }
 }
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -242,7 +252,7 @@ pub fn diff(account: &Account, after: ModelAccess) -> Result<PolicyDiff, &'stati
     let new = after.models.iter().cloned().collect::<BTreeSet<_>>();
     Ok(PolicyDiff {
         account_id: account.id.clone(),
-        account_name: account.name.clone(),
+        account_name: account.display_label(),
         mode_changed: before.mode != after.mode,
         added: new.difference(&old).cloned().collect(),
         removed: old.difference(&new).cloned().collect(),

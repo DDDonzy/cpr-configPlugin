@@ -6,6 +6,7 @@ import type {
   PolicyDiff,
   PolicyRequest,
   Snapshot,
+  UpstreamsResponse,
 } from './domain'
 export type { PluginHost } from '../host'
 import type { PluginHost } from '../host'
@@ -39,6 +40,7 @@ export async function request<T>(path: string, data?: unknown): Promise<T> {
 }
 export const api = {
   snapshot: () => request<Snapshot>('api/snapshot'),
+  upstreams: () => request<UpstreamsResponse>('api/upstreams'),
   catalog: (accountId: string, refresh = false) =>
     request<{ models: string[]; accountId: string; warnings?: string[] }>(
       'api/catalog',

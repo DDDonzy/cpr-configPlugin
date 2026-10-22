@@ -2,10 +2,11 @@
 
 将「模型路由分组」和「模型基础配置」合并的 CPR 管理插件，并包含通用 Windows Codex 配置 BAT。**不修改 CPR 本体、前端、iframe 权限或 Caddy 配置。**
 
-当前插件版本 **1.0.3**，面向 CPR **3.29.7** 构建并验证；使用插件进程协议 v5、management 合同 v2。声明范围 `>=3.29.7, <4.0.0`，后续宿主仍需核对协议兼容性。
+当前插件版本 **1.0.4**，面向 CPR **3.29.7** 构建并验证；使用插件进程协议 v5、management 合同 v2。声明范围 `>=3.29.7, <4.0.0`，后续宿主仍需核对协议兼容性。
 
 ## 功能
 
+- 「上游账号」页：直接列出 CPR 原生账号的真实身份——OAuth 显示登录邮箱与套餐，API Key 显示实际上游地址（仅协议、主机和端口，不显示密钥或路径），以及 CPR 账号分组、状态、最近使用和当前规则；可搜索、筛选并直达该账号的模型规则。插件只投影允许清单内的非敏感字段，不转发令牌。
 - 两个保留原布局的管理页面：账号原生白/黑名单及可复用分组；基础模型 JSON 与 Base/Codex 导出。
 - 基础 JSON 只维护 display_name、reasoning_levels、context_window、max_output_tokens、input_modalities，保持排序。
 - Codex 导出与 BAT 输出相同排版，每个模型附加一次 ultra（Codex 客户端选项，不声明上游原生支持）。
@@ -62,6 +63,7 @@ cargo build --manifest-path backend/Cargo.toml --locked
 python Scripts/ipc-routing.py
 python Scripts/ipc-capabilities.py
 node --experimental-strip-types --test Scripts/export.test.mts
+node --experimental-strip-types --test Scripts/routing-presentation.test.mts
 cd codex-setup/server && go test -race ./...
 ```
 

@@ -13,6 +13,15 @@ import { api, downloadJson } from '../api'
 import HelpTip from './HelpTip.vue'
 import ModelPreview from './ModelPreview.vue'
 import {
+  isOAuth,
+  kindLabel,
+  nativeName,
+  planLabel,
+  safeFileName,
+  statusView,
+  type UpstreamView,
+} from '../accountPresentation'
+import {
   expandGroups,
   modeLabels,
   policy,
@@ -26,11 +35,19 @@ import {
 } from '../domain'
 const props = defineProps<{
   account: Account
+  label: string
+  source: UpstreamView | null
   state: GroupState
   refreshKey: number
   apply: (request: PolicyRequest) => Promise<ApplyResult>
 }>()
 const emit = defineEmits<{ dirty: [boolean] }>()
+const plan = computed(() => planLabel(props.account))
+const status = computed(() => statusView(props.account))
+const name = computed(() => nativeName(props.account))
+const cprGroups = computed(() =>
+  (props.account.identity?.groups ?? []).map((g) => g.name).join('、'),
+)
 const mode = ref<Mode>('all'),
   groupIds = ref<string[]>([]),
   message = ref(''),
@@ -184,22 +201,42 @@ async function confirm() {
   <div class="editor">
     <ZCard>
       <div class="editor-head">
-        <div>
-          <h2 class="editor-title">{{ account.name }}</h2>
+        <div class="editor-identity">
+          <h2 class="editor-title" :title="label">{{ label }}</h2>
           <div class="status-line">
-            <ZTag>{{ account.provider }}</ZTag
-            ><ZTag>{{ account.enabled ? '已启用' : '已停用' }}</ZTag
+            <ZTag :type="isOAuth(account) ? 'primary' : 'info'">{{
+              kindLabel(account)
+            }}</ZTag
+            ><ZTag v-if="plan">{{ plan }}</ZTag
+            ><ZTag :type="status.type">{{ status.text }}</ZTag
             ><span
               >原生规则：{{ modeLabels[account.modelAccess.mode] }} ·
               {{ account.modelAccess.models.length }} 个模型</span
             >
           </div>
+          <dl class="identity-facts">
+            <div>
+              <dt>上游</dt>
+              <dd :title="source?.detail ?? source?.text">
+                {{ source?.text ?? '—'
+                }}<span v-if="source?.detail" class="muted">
+                  · {{ source.detail }}</span
+                >
+              </dd>
+            </div>
+            <div v-if="name"><dt>CPR 名称</dt><dd>{{ name }}</dd></div>
+            <div v-if="cprGroups"><dt>CPR 分组</dt><dd>{{ cprGroups }}</dd></div>
+            <div>
+              <dt>账号 ID</dt>
+              <dd><code>{{ account.id }}</code></dd>
+            </div>
+          </dl>
         </div>
         <ZButton
           size="small"
           @click="
             downloadJson(
-              `${account.name}-model-access.json`,
+              `${safeFileName(label)}-model-access.json`,
               account.modelAccess,
             )
           "
@@ -290,7 +327,7 @@ async function confirm() {
       title="确认原生模型权限变更"
       :description="
         previewDiff
-          ? `目标账号：${previewDiff.accountName}，${samePolicy(previewDiff.before, previewDiff.after) ? '原生名单不变，仅保存分组关联' : '确认后写入原生模型权限'}`
+          ? `目标账号：${label}，${samePolicy(previewDiff.before, previewDiff.after) ? '原生名单不变，仅保存分组关联' : '确认后写入原生模型权限'}`
           : ''
       "
       width="44rem"

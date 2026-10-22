@@ -16,23 +16,81 @@ import {
   type Snapshot,
 } from './domain'
 
+const minutesAgo = (n: number) =>
+  n ? new Date(Date.now() - n * 60000).toISOString() : undefined
+function oauth(
+  id: string,
+  email: string,
+  planType: string | null,
+  planTypeDisplay: string,
+  group: string,
+  lastUsed: number,
+  modelAccess: Account['modelAccess'],
+): Account {
+  return {
+    id,
+    name: 'OpenAI 账号',
+    provider: 'openai',
+    enabled: true,
+    status: 'normal',
+    modelAccess,
+    identity: {
+      email,
+      authenticationKind: 'oauth',
+      ...(planType ? { planType, planTypeDisplay } : {}),
+      groups: [{ id: `grp_demo_${group.toLowerCase()}`, name: group, color: '#60A5FA80', enabled: true }],
+      lastUsedAt: minutesAgo(lastUsed),
+    },
+  }
+}
+function apiKey(
+  id: string,
+  name: string,
+  notes: string | undefined,
+  modelAccess: Account['modelAccess'],
+): Account {
+  return {
+    id,
+    name,
+    provider: 'openai',
+    enabled: true,
+    status: 'normal',
+    modelAccess,
+    identity: { authenticationKind: 'api_key', notes, lastUsedAt: minutesAgo(30) },
+  }
+}
+const demoAddresses: Record<string, { url: string; host: string; loopback: boolean }> = {
+  acct_demo_relay: { url: 'https://relay.example.test', host: 'relay.example.test', loopback: false },
+  acct_demo_local: { url: 'http://127.0.0.1:8317', host: '127.0.0.1:8317', loopback: true },
+}
 const fixtures = (): Snapshot => ({
   accounts: [
+    oauth('acct_demo_gpt', 'team.alpha@example.com', 'pro', 'Pro', 'DEFAULT', 5, {
+      mode: 'denylist',
+      models: ['claude-opus-5.5'],
+    }),
     {
-      id: 'acct_demo_gpt',
-      name: 'GPT',
-      provider: 'openai',
-      enabled: true,
-      status: 'normal',
-      modelAccess: { mode: 'denylist', models: ['claude-opus-5.5'] },
+      ...oauth('acct_demo_backup', 'backup.beta@example.org', 'prolite', 'ProLite', 'TEST', 90, {
+        mode: 'all',
+        models: [],
+      }),
+      status: 'rate_limited',
     },
+    apiKey('acct_demo_relay', 'CLAUDE 中转', '演示：第三方中转服务', {
+      mode: 'all',
+      models: [],
+    }),
+    apiKey('acct_demo_local', 'CPA-API', undefined, {
+      mode: 'allowlist',
+      models: ['claude-opus-5.5'],
+    }),
     {
-      id: 'acct_demo_claude',
-      name: 'CLAUDE',
-      provider: 'openai',
-      enabled: true,
-      status: 'normal',
-      modelAccess: { mode: 'all', models: [] },
+      ...oauth('acct_demo_off', 'legacy@example.net', null, '未知套餐', 'TEST', 0, {
+        mode: 'all',
+        models: [],
+      }),
+      enabled: false,
+      status: 'disabled',
     },
   ],
   state: {
@@ -105,6 +163,21 @@ export function installDemo(): boolean {
       try {
         const body = input.body ? JSON.parse(input.body) : null
         if (input.path === 'api/snapshot') return reply(200, clone(snapshot))
+        if (input.path === 'api/upstreams')
+          return reply(200, {
+            upstreams: Object.fromEntries(
+              snapshot.accounts.map((a) => {
+                const address = demoAddresses[a.id]
+                return [
+                  a.id,
+                  address
+                    ? { kind: 'api_key', status: 'ok', address, transport: 'http' }
+                    : { kind: 'oauth', status: 'ok' },
+                ]
+              }),
+            ),
+            warnings: [],
+          })
         if (input.path === 'api/catalog-all')
           return reply(200, { models: catalogue, warnings: [] })
         if (input.path === 'api/catalog')

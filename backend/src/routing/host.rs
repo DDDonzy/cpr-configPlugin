@@ -2,7 +2,7 @@
 
 use crate::routing::{
     domain::{Account, Document, GroupState},
-    state_codec,
+    identity, state_codec,
 };
 use gateway_plugin_sdk::{
     ErrorCode, PluginFault,
@@ -86,8 +86,9 @@ pub async fn accounts(host: &HostClient) -> Result<Vec<Account>, PluginFault> {
             .and_then(Value::as_array)
             .ok_or_else(|| fault("账号列表格式不兼容"))?;
         for item in items {
-            let account: Account = serde_json::from_value(item.clone())
+            let mut account: Account = serde_json::from_value(item.clone())
                 .map_err(|_| fault("账号模型权限格式不兼容"))?;
+            account.identity = identity::project(item);
             account
                 .model_access
                 .normalized()

@@ -68,6 +68,10 @@ class Harness:
     if 'acct_second' in uri or (verb=='POST' and json.loads(payload).get('accountId')=='acct_second'):data={'models':[{'id':'claude-two'},{'id':'custom-image'},{'id':'__not_public'}]}
     elif 'acct_failed' in uri or (verb=='POST' and json.loads(payload).get('accountId')=='acct_failed'):code=50301;status=503
     else:data={'models':[{'id':'claude-one'},{'id':'custom-image'},{'id':'__not_public'}]}
+   elif verb=='GET' and uri.startswith('/api/admin/accounts/detail?accountId='):
+    aid=uri.split('=',1)[1];cfg=getattr(self,'details',{}).get(aid)
+    if cfg=='FAIL':code=50001;status=500
+    else:data={'account':{'id':aid,'apiKey':'DETAIL_KEY_SENTINEL'},'credentialConfiguration':cfg}
    else:raise AssertionError((verb,uri))
    self.body_seq+=1;handle='body_'+str(self.body_seq);self.bodies[handle]=json.dumps({'code':code,'message':'','data':data}).encode()
    result={'status':status,'version':'HTTP/1.1','headers':[],'body':{'kind':'handle','handle':handle},'response':None,'session':False}
@@ -138,9 +142,40 @@ class Tests(unittest.TestCase):
   with Harness() as h:
    status,s=h.management('api/catalog-all',{},method='DELETE');self.assertEqual(status,404);self.assertEqual(h.writes,[])
 
+ def test_snapshot_projects_identity_without_tokens(self):
+  with Harness() as h:
+   a=copy.deepcopy(ACCOUNT);a.update({'email':'person@example.test','authenticationKind':'oauth','planType':'pro','planTypeDisplay':'Pro','accessToken':'TOKEN_SENTINEL','refreshToken':'REFRESH_SENTINEL','userId':'USER_SENTINEL','groups':[{'id':'grp_test','name':'DEFAULT','color':'#05FF0080','enabled':True}],'usage':{'lastUsedAt':'2026-10-22T03:00:00Z','requestCount':5},'quota':{'windows':[{'key':'QUOTA_SENTINEL'}]}})
+   h.accounts=[a]
+   status,s=h.management('api/snapshot');self.assertEqual(status,200);text=json.dumps(s,ensure_ascii=False)
+   for x in ['DO_NOT_EXPOSE_SENTINEL','TOKEN_SENTINEL','REFRESH_SENTINEL','USER_SENTINEL','QUOTA_SENTINEL']:self.assertNotIn(x,text)
+   ident=s['accounts'][0]['identity'];self.assertEqual(ident['email'],'person@example.test');self.assertEqual(ident['planTypeDisplay'],'Pro');self.assertEqual(ident['groups'][0]['name'],'DEFAULT');self.assertEqual(ident['lastUsedAt'],'2026-10-22T03:00:00Z');self.assertEqual(h.writes,[])
+ def test_upstreams_reads_only_api_key_details_and_sanitizes(self):
+  with Harness() as h:
+   o=copy.deepcopy(ACCOUNT);o.update({'id':'acct_oauth','email':'person@example.test','authenticationKind':'oauth'})
+   rows=[o]
+   for aid,name in [('acct_key','Relay'),('acct_bad','Bad'),('acct_down','Down')]:
+    k=copy.deepcopy(ACCOUNT);k.update({'id':aid,'name':name,'authenticationKind':'api_key'});rows.append(k)
+   h.accounts=rows
+   h.details={'acct_key':{'base_url':'HTTPS://Relay.Example.test:8443/PATH_SECRET/v1?token=QUERY_SECRET#frag','transport':'prefer_websocket'},'acct_bad':{'base_url':'https://user:PASS_SECRET@relay.example.test/v1','transport':'http'},'acct_down':'FAIL'}
+   status,s=h.management('api/upstreams');self.assertEqual(status,200);text=json.dumps(s)
+   for x in ['PATH_SECRET','QUERY_SECRET','PASS_SECRET','DETAIL_KEY_SENTINEL','DO_NOT_EXPOSE_SENTINEL','frag']:self.assertNotIn(x,text)
+   u=s['upstreams'];self.assertEqual(u['acct_oauth'],{'kind':'oauth','status':'ok'})
+   self.assertEqual(u['acct_key']['address'],{'url':'https://relay.example.test:8443','host':'relay.example.test:8443','loopback':False});self.assertEqual(u['acct_key']['transport'],'prefer_websocket')
+   self.assertEqual(u['acct_bad']['status'],'unavailable');self.assertNotIn('address',u['acct_bad']);self.assertEqual(u['acct_down']['status'],'unavailable')
+   self.assertEqual(len(s['warnings']),1);self.assertIn('2',s['warnings'][0])
+   details=sorted(uri for verb,uri in h.http_requests if '/detail?' in uri)
+   self.assertEqual(details,['/api/admin/accounts/detail?accountId=acct_bad','/api/admin/accounts/detail?accountId=acct_down','/api/admin/accounts/detail?accountId=acct_key'])
+   self.assertTrue(all(verb=='GET' for verb,uri in h.http_requests));self.assertEqual(h.writes,[]);self.assertIsNone(h.doc)
+ def test_upstreams_get_rejects_body(self):
+  with Harness() as h:
+   status,s=h.management('api/upstreams',{'x':1},method='GET');self.assertEqual(status,400);self.assertEqual(h.http_requests,[])
+ def test_preview_names_account_by_identity(self):
+  with Harness() as h:
+   h.accounts[0].update({'email':'person@example.test','authenticationKind':'oauth'})
+   status,s=h.management('api/preview',request());self.assertEqual(status,200);self.assertEqual(s['diff']['accountName'],'person@example.test')
  def test_registration_and_snapshot_redaction(self):
   with Harness() as h:
-   reg,p=h.call('management.register',{},b'','registration');data=json.loads(p);self.assertEqual(len(data['pages']),2);self.assertEqual(len(data['routes']),12)
+   reg,p=h.call('management.register',{},b'','registration');data=json.loads(p);self.assertEqual(len(data['pages']),2);self.assertEqual(len(data['routes']),13)
    status,s=h.management('api/snapshot');self.assertEqual(status,200);self.assertNotIn('DO_NOT_EXPOSE_SENTINEL',json.dumps(s));self.assertEqual(s['accounts'][0]['modelAccess'],POLICY);self.assertEqual(h.writes,[])
  def test_large_groups_return_binary_snapshot_below_metadata_limit(self):
   groups=[{'id':f'g{i}','name':f'group{i}','models':[f'vendor-model-family-long-prefix-{i}-{j}' for j in range(256)]} for i in range(16)]

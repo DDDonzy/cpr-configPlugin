@@ -15,6 +15,7 @@ import AccountEditor from './components/AccountEditor.vue'
 import GroupEditor from './components/GroupEditor.vue'
 import HelpTip from './components/HelpTip.vue'
 import GroupRow from './components/GroupRow.vue'
+import UpstreamAccounts from './components/UpstreamAccounts.vue'
 import JsonExportDialog from './components/JsonExportDialog.vue'
 import { api, downloadJson } from './api'
 import {
@@ -25,14 +26,21 @@ import {
   type ApplyResult,
   type ModelGroup,
   type PolicyRequest,
+  type AccountUpstream,
   type Snapshot,
 } from './domain'
+import {
+  accountLabels,
+  compactSource,
+  matchesAccount,
+  upstreamView,
+} from './accountPresentation'
 const props = defineProps<{ demo: boolean }>()
 const snapshot = ref<Snapshot | null>(null),
   loading = ref(false),
   error = ref(''),
   success = ref(''),
-  page = ref('accounts'),
+  page = ref('upstreams'),
   selected = ref(''),
   accountSearch = ref(''),
   dirty = ref(false),
@@ -48,19 +56,61 @@ const discardDialog = ref(false),
 const importDialog = ref(false),
   importText = ref(''),
   importError = ref('')
+const upstreams = ref<Record<string, AccountUpstream> | null>(null),
+  upstreamsLoading = ref(false),
+  upstreamWarnings = ref<string[]>([])
+let upstreamSeq = 0
 const tabs = [
+  { label: '上游账号', value: 'upstreams' },
   { label: '账号模型规则', value: 'accounts' },
   { label: '模型分组', value: 'groups' },
 ]
 const account = computed(
   () => snapshot.value?.accounts.find((a) => a.id === selected.value) ?? null,
 )
+const labels = computed(() => accountLabels(snapshot.value?.accounts ?? []))
 const visibleAccounts = computed(
   () =>
     snapshot.value?.accounts.filter((a) =>
-      a.name.toLowerCase().includes(accountSearch.value.trim().toLowerCase()),
+      matchesAccount(
+        a,
+        labels.value.get(a.id) ?? a.name,
+        upstreams.value?.[a.id],
+        accountSearch.value,
+      ),
     ) ?? [],
 )
+function sourceOf(id: string) {
+  const a = snapshot.value?.accounts.find((x) => x.id === id)
+  return a ? upstreamView(a, upstreams.value?.[id], upstreamsLoading.value) : null
+}
+async function loadUpstreams() {
+  const seq = ++upstreamSeq
+  upstreamsLoading.value = true
+  try {
+    const value = await api.upstreams()
+    if (seq !== upstreamSeq) return
+    upstreams.value = value.upstreams
+    upstreamWarnings.value = value.warnings
+  } catch (e) {
+    if (seq !== upstreamSeq) return
+    upstreams.value = {}
+    upstreamWarnings.value = [`上游地址暂不可读：${(e as Error).message}`]
+  } finally {
+    if (seq === upstreamSeq) upstreamsLoading.value = false
+  }
+}
+function sidebarSource(id: string) {
+  const a = snapshot.value?.accounts.find((x) => x.id === id)
+  const view = sourceOf(id)
+  return a && view ? compactSource(a, view) : ''
+}
+function openRules(id: string) {
+  switchTo(() => {
+    selected.value = id
+    page.value = 'accounts'
+  })
+}
 async function load() {
   loading.value = true
   error.value = ''
@@ -71,6 +121,7 @@ async function load() {
       selected.value = value.accounts[0]?.id ?? ''
     refreshKey.value++
     dirty.value = false
+    void loadUpstreams()
   } catch (e) {
     error.value = (e as Error).message
   } finally {
@@ -274,13 +325,24 @@ onMounted(load)
     <div v-if="error" class="notice error" role="alert">{{ error }}</div>
     <div v-if="success" class="notice" role="status">{{ success }}</div>
     <template v-if="snapshot">
-      <div v-if="page === 'accounts'" class="account-layout">
+      <UpstreamAccounts
+        v-if="page === 'upstreams'"
+        :accounts="snapshot.accounts"
+        :labels="labels"
+        :upstreams="upstreams"
+        :upstreams-loading="upstreamsLoading"
+        :upstream-warnings="upstreamWarnings"
+        :bindings="snapshot.state.value.bindings"
+        :selected-id="selected"
+        @select="openRules"
+      />
+      <div v-else-if="page === 'accounts'" class="account-layout">
         <ZCard class="account-sidebar" title="上游账号"
           ><div class="account-list">
             <ZInput
               v-model="accountSearch"
               aria-label="搜索上游账号"
-              placeholder="搜索账号名称"
+              placeholder="搜索邮箱、名称或上游地址"
             /><button
               v-for="item in visibleAccounts"
               :key="item.id"
@@ -288,7 +350,7 @@ onMounted(load)
               class="account-choice"
               :class="{ selected: item.id === selected }"
               :aria-pressed="item.id === selected"
-              :aria-label="`选择账号 ${item.name}`"
+              :aria-label="`选择账号 ${labels.get(item.id) ?? item.name}`"
               @click="
                 switchTo(() => {
                   selected = item.id
@@ -296,7 +358,12 @@ onMounted(load)
               "
             >
               <span class="account-name"
-                ><strong>{{ item.name }}</strong
+                ><strong :title="labels.get(item.id)">{{
+                  labels.get(item.id) ?? item.name
+                }}</strong
+                ><small class="account-source" :title="sidebarSource(item.id)">{{
+                  sidebarSource(item.id)
+                }}</small
                 ><small
                   >{{ modeLabels[item.modelAccess.mode] }} ·
                   {{ item.modelAccess.models.length }} 个</small
@@ -318,6 +385,8 @@ onMounted(load)
           v-if="account"
           :key="account.id"
           :account="account"
+          :label="labels.get(account.id) ?? account.name"
+          :source="sourceOf(account.id)"
           :state="snapshot.state"
           :refresh-key="refreshKey"
           :apply="apply"
@@ -351,6 +420,7 @@ onMounted(load)
             :key="group.id"
             :group="group"
             :accounts="snapshot.accounts"
+            :labels="labels"
             :bindings="snapshot.state.value.bindings"
             @edit="openGroupEditor"
             @delete="openDelete"

@@ -28,6 +28,7 @@ jobs:
       - run: python Scripts/ipc-routing.py
       - run: python Scripts/ipc-capabilities.py
       - run: node --experimental-strip-types --test Scripts/export.test.mts
+      - run: node --experimental-strip-types --test Scripts/routing-presentation.test.mts
       - run: go test -race ./...
         working-directory: codex-setup/server
       - run: python Scripts/scan-source.py
