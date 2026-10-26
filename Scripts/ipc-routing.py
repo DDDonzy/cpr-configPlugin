@@ -10,8 +10,8 @@ class Harness:
   self.proc=subprocess.Popen([str(BIN)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
   self.frames=queue.Queue();self.read_error=None;self.seq=99;self.accounts=[copy.deepcopy(ACCOUNT)];self.doc=doc;self.version=version;self.fail_put=fail_put;self.fail_native=fail_native;self.callbacks=[];self.http_requests=[];self.writes=[];self.bodies={};self.body_seq=0
   threading.Thread(target=self.reader,daemon=True).start()
-  self.send({'type':'hello','handshake':{'protocol_version':5,'artifact_sha256':'a'*64,'plugin_id':'donzy.model-routing-groups','instance_id':'test-instance','generation':1,'incarnation':'test-incarnation','configuration':{},'contributes':MANIFEST['contributes']}})
-  ready,payload=self.read();assert ready['type']=='ready' and ready['protocol_version']==5 and not payload
+  self.send({'type':'hello','handshake':{'protocol_version':6,'artifact_sha256':'a'*64,'plugin_id':'donzy.model-routing-groups','instance_id':'test-instance','generation':1,'incarnation':'test-incarnation','configuration':{},'contributes':MANIFEST['contributes']}})
+  ready,payload=self.read();assert ready['type']=='ready' and ready['protocol_version']==6 and not payload
   self.call('plugin.register',{},b'','registration')
  def reader(self):
   try:
@@ -83,7 +83,7 @@ class Harness:
   else:raise AssertionError('Unexpected callback '+method)
   if error:self.send({'type':'error','id':meta['id'],'error':error})
   else:self.send({'type':'result','id':meta['id'],'result':result},body)
- def context(self,id,stage):return {'call_id':id,'instance_id':'test-instance','generation':1,'incarnation':'test-incarnation','stage':stage,'timeout_ms':30000,'resource_stream':False,'resource_scope_id':'scope_'+str(id)}
+ def context(self,id,stage):return {'call_id':id,'instance_id':'test-instance','generation':1,'incarnation':'test-incarnation','stage':stage,'timeout_ms':3000 if stage=='registration' else 30000,'resource_stream':False,'resource_scope_id':'scope_'+str(id)}
  def call(self,method,params,payload=b'',stage='management'):
   self.seq+=2;id=self.seq;self.send({'type':'call','id':id,'method':method,'context':self.context(id,stage),'params':params},payload)
   while True:

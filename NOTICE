@@ -1,7 +1,7 @@
 cpr-configPlugin
 Copyright 2026 DDDonzy.
 
-Includes gateway-plugin-sdk from zyycn/codex-proxy-rs v3.29.7 and codex-proxy-ui 0.4.0 (Apache-2.0).
+Includes gateway-plugin-sdk from zyycn/codex-proxy-rs v3.32.0 and codex-proxy-ui 0.4.0 (Apache-2.0).
 Their source notices are retained. SDK implementation sources are unchanged; Cargo workspace metadata is expanded for standalone builds; this repository's management modules are a consolidated derivative of the user's existing plugins.
 Includes Nett 0.15.0 net40 (MIT), license at codex-setup/vendor/LICENSE.Nett.txt.
 Other npm and Cargo dependencies retain their respective licenses in their packages.
