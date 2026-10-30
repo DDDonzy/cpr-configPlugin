@@ -2,7 +2,7 @@
 
 将「模型路由分组」和「模型基础配置」合并的 CPR 管理插件，并包含通用 Windows Codex 配置 BAT。**不修改 CPR 本体、前端、iframe 权限或 Caddy 配置。**
 
-当前插件版本 **1.0.5**，面向 CPR **3.32.0** 构建并验证；使用插件进程协议 v6、management 合同 v2。声明范围 `>=3.32.0, <4.0.0`，后续宿主仍需核对协议兼容性。
+当前插件版本 **1.0.6**，面向 CPR **3.35.1** 构建并验证；使用插件进程协议 v7、management 合同 v2。声明范围 `>=3.35.1, <4.0.0`，后续宿主仍需核对协议兼容性。
 
 ## 功能
 
@@ -50,7 +50,7 @@ rustup target add aarch64-unknown-linux-musl
 python Scripts/build.py
 ```
 
-产物在dist：受管插件tar.gz、通用BAT、独立服务LinuxARM64二进制。打包脚本生成标准 protocol 6 清单和每个文件的SHA256，不包含任何配置数据、凭据或部署日志。Windows构建需Go可执行文件，或者先单独交叉构建服务，再用 `--skip-go`。
+产物在dist：受管插件tar.gz、通用BAT、独立服务LinuxARM64二进制。打包脚本生成标准 protocol 7 清单和每个文件的SHA256，不包含任何配置数据、凭据或部署日志。Windows构建需Go可执行文件，或者先单独交叉构建服务，再用 `--skip-go`。
 
 ## 测试
 
@@ -71,4 +71,4 @@ IPC测试启动真实插件子进程，但宿主账号/状态均为虚构测试�
 
 ## 许可
 
-Apache-2.0。第三方说明见NOTICE；Nett 0.15.0 MIT许可单独保留。gateway-plugin-sdk 固定取自官方 CPR v3.32.0；保留源码及许可，仅将 Cargo workspace 元数据展开以支持独立构建。
+Apache-2.0。第三方说明见NOTICE；Nett 0.15.0 MIT许可单独保留。gateway-plugin-sdk 固定取自官方 CPR v3.35.1；保留源码及许可，仅将 Cargo workspace 元数据展开以支持独立构建。

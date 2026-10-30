@@ -3,12 +3,12 @@
   "name": "model-routing-groups",
   "displayName": "模型配置管理",
   "publisher": "donzy",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "账号模型规则、可复用模型分组、模型基础配置与Codex配置工具",
   "license": "Apache-2.0",
   "author": "Donzy",
   "engines": {
-    "codex-proxy-rs": ">=3.32.0, <4.0.0"
+    "codex-proxy-rs": ">=3.35.1, <4.0.0"
   },
   "main": "bin/plugin",
   "runtime": "trustedProcess",
