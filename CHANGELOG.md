@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.7 — 2026-11-04
+
+- 修复 CPR **3.36.0 / 3.39.1+** 下插件页面变成白底的问题：宿主升级 `@codex-proxy/ui` v0.8.0 后主题桥默认写入 `--z-*` 前缀变量；现已在页面 `<head>` 声明 `<meta name="codex-proxy-ui-theme-prefix" content="cp">` 并增加 `--z-*` / `--cp-*` 双向变量同步，同时将 `html, body` 统一设为 `background: transparent` 并对齐状态背景 Token 名称。
+- 同步官方 v3.39.1 `gateway-plugin-sdk`（协议 v7，management 合同 v2）。
+
 ## 1.0.6 — 2026-10-30
 
 - 适配 CPR **3.35.1**：同步官方 v3.35.1 `gateway-plugin-sdk`，插件进程协议由 v6 升级到 v7，继续使用 management 合同 v2。

@@ -1,3 +1,4 @@
+html,
 body {
   margin: 0;
   background: transparent;
@@ -40,11 +41,11 @@ body {
   line-height: 1.65;
 }
 .notice.warning {
-  background: var(--cp-color-warning-bg);
+  background: var(--cp-color-warning-container);
   color: var(--cp-color-warning-text);
 }
 .notice.error {
-  background: var(--cp-color-error-bg);
+  background: var(--cp-color-error-container);
   color: var(--cp-color-error-text);
 }
 .account-layout {
@@ -515,7 +516,7 @@ body {
 }
 .model-policy-icon {
   flex-shrink: 0;
-  color: var(--cp-text-secondary);
+  color: var(--cp-color-text-secondary);
 }
 .model-preview-item {
   user-select: text;
@@ -590,8 +591,8 @@ body {
   width: 44px;
   height: 44px;
   border-radius: var(--cp-border-radius, 8px);
-  background: var(--cp-info-container, var(--cp-color-primary-container));
-  color: var(--cp-info-on-container, var(--cp-color-primary-text));
+  background: var(--cp-color-info-container, var(--cp-color-primary-container));
+  color: var(--cp-color-info-on-container, var(--cp-color-primary-text));
   font-size: 20px;
   font-weight: 700;
 }

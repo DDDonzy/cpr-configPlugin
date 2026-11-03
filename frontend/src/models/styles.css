@@ -1,3 +1,4 @@
+html,
 body {
   margin: 0;
   background: transparent;
@@ -40,11 +41,11 @@ body {
 }
 .notice.error {
   color: var(--cp-color-error-text, #f08c8c);
-  background: var(--cp-color-error-bg, #42242c);
+  background: var(--cp-color-error-container, #42242c);
 }
 .notice.warning {
   color: var(--cp-color-warning-text, #dfbb70);
-  background: var(--cp-color-warning-bg, #3b3020);
+  background: var(--cp-color-warning-container, #3b3020);
 }
 .model-records {
   display: flex;
@@ -86,7 +87,7 @@ body {
   width: 32px;
   flex-shrink: 0;
   border-radius: 9px;
-  background: var(--cp-color-primary-bg, var(--cp-color-fill-tertiary));
+  background: var(--cp-color-primary-container, var(--cp-color-fill-tertiary));
   color: var(--cp-color-primary);
   font-size: 16px;
   font-weight: 700;
@@ -189,7 +190,7 @@ body {
 .model-details > div {
   min-width: 0;
   padding: 18px;
-  background: var(--cp-color-bg-base, #101b2b);
+  background: var(--cp-color-bg-container, var(--cp-color-fill-quaternary));
   border-radius: 12px;
 }
 h3 {

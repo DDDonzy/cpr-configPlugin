@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {accountLabels,compactSource,filterAccount,matchesAccount,nativeName,relativeTime,safeColor,safeFileName,statusView,upstreamView} from '../frontend/src/routing/accountPresentation.ts'
@@ -36,3 +37,12 @@ test('status, time, colour and file name helpers stay safe',()=>{
  assert.equal(relativeTime('2026-10-23T00:00:00Z',now),'刚刚');assert.equal(relativeTime('not a date',now),undefined)
  assert.equal(safeColor('#05FF0080'),'#05FF0080');assert.equal(safeColor('red;background:url(x)'),undefined)
  assert.equal(safeFileName('a/b:c*?.json'),'a_b_c_.json');assert.equal(safeFileName('  '),'account')})
+
+test('theme namespace meta and transparent root canvas prevent white background on CPR 3.36+',()=>{
+ for(const page of ['routing','models']){
+  const html=readFileSync(new URL(`../frontend/pages/${page}/index.html`,import.meta.url),'utf8')
+  const css=readFileSync(new URL(`../frontend/src/${page}/styles.css`,import.meta.url),'utf8')
+  assert.match(html,/<meta name="codex-proxy-ui-theme-prefix" content="cp">/)
+  assert.match(css,/html,\s*body\s*\{[^}]*background:\s*transparent;/s)
+ }
+})

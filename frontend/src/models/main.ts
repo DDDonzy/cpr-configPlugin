@@ -2,6 +2,8 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import '@codex-proxy/ui/styles.css'
 import './styles.css'
+import { installThemeSync } from '../host'
+installThemeSync()
 let demo = false
 if (import.meta.env.DEV) {
   const { installDemo } = await import('./demo')
